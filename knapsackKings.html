@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Knapsack Kings – Level Mode</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    table { border-collapse: collapse; }
+    td {
+      width: 30px;
+      height: 30px;
+      border: 1px solid #000;
+      text-align: center;
+      vertical-align: middle;
+    }
+    .highlight {
+      background-color: yellow;
+    }
+    .dropzone {
+      cursor: pointer;
+    }
+    .shapeOption {
+      display: inline-block;
+      margin: 10px;
+      border: 1px solid #000;
+      padding: 5px;
+    }
+    .shapeOption table {
+      border-collapse: collapse;
+    }
+    .shapeOption td {
+      width: 20px;
+      height: 20px;
+      border: 1px solid #000;
+    }
+  </style>
+</head>
+<body>
+  <h1>Knapsack Kings – Level Mode</h1>
+  <div id="status"></div>
+  <div>
+    <h2>Your Grid</h2>
+    <div id="playerGrid"></div>
+  </div>
+  <h2>Choose a Shape</h2>
+  <div id="shapeOptions"></div>
+  <div id="gameMessage"></div>
+
+  <script>
+    // Level definitions:
+    // Level 1: 6x6 grid, target = 60% of total pre-generated shapes' value.
+    // Level 2: 7x7 grid, target = 70%.
+    let currentLevelIndex = 0;
+    const levels = [
+      { gridSize: 6, targetPercentage: 0.6 },   // Level 1
+      { gridSize: 7, targetPercentage: 0.65 },  // Level 2
+      { gridSize: 8, targetPercentage: 0.7 },   // Level 3
+      { gridSize: 9, targetPercentage: 0.75 },  // Level 4
+      { gridSize: 10, targetPercentage: 0.78 }, // Level 5
+      { gridSize: 11, targetPercentage: 0.81 }, // Level 6
+      { gridSize: 12, targetPercentage: 0.84 }, // Level 7
+      { gridSize: 13, targetPercentage: 0.87 }, // Level 8
+      { gridSize: 14, targetPercentage: 0.9 },  // Level 9
+      { gridSize: 15, targetPercentage: 0.93 }  // Level 10
+    ];
+    let gridSize;            // current level grid size
+    let targetValue = 0;     // target score for the level
+    let totalLevelValue = 0; // sum of values of all shapes for the level
+    let levelShapes = [];    // list of all pre-generated shapes for the level
+    let remainingShapes = []; // shapes still available to place
+    let currentShapes = [];  // three shape options shown in the current round
+    let roundCount = 1;
+    
+    // Player's grid and score:
+    let playerKnapsack = {
+      grid: [],
+      totalValue: 0,
+      items: []
+    };
+
+    // Expanded pool of shapes – standard tetrominoes with extra rotations/mirrors.
+    const shapesPool = [
+      { name: 'I', blocks: [[0,0], [0,1], [0,2], [0,3]] },
+      { name: 'I-rotated', blocks: [[0,0], [1,0], [2,0], [3,0]] },
+      { name: 'O', blocks: [[0,0], [0,1], [1,0], [1,1]] },
+      { name: 'T', blocks: [[0,0], [0,1], [0,2], [1,1]] },
+      { name: 'T-rotated', blocks: [[0,1], [1,0], [1,1], [2,1]] },
+      { name: 'L', blocks: [[0,0], [1,0], [2,0], [2,1]] },
+      { name: 'J', blocks: [[0,1], [1,1], [2,1], [2,0]] },
+      { name: 'S', blocks: [[0,1], [0,2], [1,0], [1,1]] },
+      { name: 'Z', blocks: [[0,0], [0,1], [1,1], [1,2]] }
+    ];
+
+    // Utility: Map a shape's value (10-30) to a green shade.
+    // Lower values yield a very light green (90% lightness), higher values a dark green (30%).
+    function valueToGreen(value) {
+      let normalized = (value - 10) / 20;
+      let lightness = 90 - normalized * 60;
+      return `hsl(120, 100%, ${lightness}%)`;
+    }
+
+    // Create an empty 2D grid (gridSize x gridSize) initialized to null.
+    function createEmptyGrid() {
+      let grid = [];
+      for (let r = 0; r < gridSize; r++) {
+        let row = [];
+        for (let c = 0; c < gridSize; c++) {
+          row.push(null);
+        }
+        grid.push(row);
+      }
+      return grid;
+    }
+
+    // Fisher–Yates shuffle.
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+         let j = Math.floor(Math.random() * (i + 1));
+         [array[i], array[j]] = [array[j], array[i]];
+      }
+    }
+
+    // Generate a shape from a given template with a random value (10–30).
+    function generateShapeFromTemplate(template) {
+      return {
+        name: template.name,
+        blocks: template.blocks.map(b => [b[0], b[1]]),
+        value: Math.floor(Math.random() * 21) + 10
+      };
+    }
+
+    // Generate level shapes: keep adding shapes while the sum of their cell counts is ≤ total grid cells.
+    function generateLevelShapes(totalCells) {
+      let shapesForLevel = [];
+      let totalArea = 0;
+      while (true) {
+        let template = shapesPool[Math.floor(Math.random() * shapesPool.length)];
+        let candidate = generateShapeFromTemplate(template);
+        let candidateArea = candidate.blocks.length; // (tetrominoes usually cover 4 cells)
+        if (totalArea + candidateArea <= totalCells) {
+          shapesForLevel.push(candidate);
+          totalArea += candidateArea;
+        } else {
+          break;
+        }
+      }
+      return shapesForLevel;
+    }
+
+    // Get the bounding box dimensions for a shape.
+    function getShapeDimensions(shape) {
+      let maxRow = 0, maxCol = 0;
+      shape.blocks.forEach(([r, c]) => {
+         if (r > maxRow) maxRow = r;
+         if (c > maxCol) maxCol = c;
+      });
+      return { rows: maxRow + 1, cols: maxCol + 1 };
+    }
+
+    // Check if a shape can be placed on a grid at (startRow, startCol).
+    function canPlaceShape(grid, shape, startRow, startCol) {
+      for (let i = 0; i < shape.blocks.length; i++) {
+         let [dr, dc] = shape.blocks[i];
+         let r = startRow + dr, c = startCol + dc;
+         if (r < 0 || r >= gridSize || c < 0 || c >= gridSize) return false;
+         if (grid[r][c] !== null) return false;
+      }
+      return true;
+    }
+
+    // Place a shape on the grid (assumes placement is valid) and store its value.
+    function placeShape(grid, shape, startRow, startCol) {
+      shape.blocks.forEach(([dr, dc]) => {
+         grid[startRow + dr][startCol + dc] = shape.value;
+      });
+    }
+
+    // Check if there is any valid placement for a shape on the current grid.
+    function hasValidPlacement(grid, shape) {
+      for (let r = 0; r < gridSize; r++) {
+         for (let c = 0; c < gridSize; c++) {
+            if (canPlaceShape(grid, shape, r, c)) return true;
+         }
+      }
+      return false;
+    }
+
+    // Render the player's grid.
+    // If a cell is filled, its background is set using valueToGreen.
+    // Empty cells may be highlighted (yellow) if part of a valid drag–hover.
+    function renderPlayerGrid() {
+      const container = document.getElementById('playerGrid');
+      let html = '<table>';
+      for (let r = 0; r < gridSize; r++) {
+         html += '<tr>';
+         for (let c = 0; c < gridSize; c++) {
+            let cellValue = playerKnapsack.grid[r][c];
+            let styleAttr = '';
+            let classes = 'dropzone';
+            if (cellValue !== null) {
+               styleAttr = ` style="background-color: ${valueToGreen(cellValue)};"`;
+            } else {
+               for (let i = 0; i < highlightCells.length; i++) {
+                  if (highlightCells[i][0] === r && highlightCells[i][1] === c) {
+                     classes += ' highlight';
+                     break;
+                  }
+               }
+            }
+            html += `<td class="${classes}"${styleAttr} ondragover="handleDragOver(event, ${r}, ${c})" ondragleave="clearHighlight(event)" ondrop="dropShape(event, ${r}, ${c})"></td>`;
+         }
+         html += '</tr>';
+      }
+      html += '</table>';
+      container.innerHTML = html;
+    }
+
+    // Render the three shape options as draggable elements.
+    function renderShapeOptions() {
+      const container = document.getElementById('shapeOptions');
+      let html = '';
+      currentShapes.forEach((shape, index) => {
+         const dims = getShapeDimensions(shape);
+         html += `<div class="shapeOption" draggable="true" ondragstart="dragStart(event, ${index})">`;
+         html += '<table>';
+         for (let r = 0; r < dims.rows; r++) {
+            html += '<tr>';
+            for (let c = 0; c < dims.cols; c++) {
+               let isBlock = shape.blocks.some(([br, bc]) => br === r && bc === c);
+               if (isBlock) {
+                  html += `<td style="background-color: ${valueToGreen(shape.value)};"></td>`;
+               } else {
+                  html += `<td></td>`;
+               }
+            }
+            html += '</tr>';
+         }
+         html += '</table>';
+         html += `<p>${shape.name} - Value: ${shape.value}</p>`;
+         html += `</div>`;
+      });
+      container.innerHTML = html;
+    }
+
+    // Update the status display.
+    function updateStatus() {
+      const statusDiv = document.getElementById('status');
+      statusDiv.innerHTML = `<p>Level ${currentLevelIndex + 1} (Grid: ${gridSize}×${gridSize})</p>
+                             <p>Target Score: ${Math.ceil(targetValue)} / Total Level Value: ${totalLevelValue}</p>
+                             <p>Current Score: ${playerKnapsack.totalValue}</p>
+                             <p>Remaining Shapes: ${remainingShapes.length}</p>`;
+    }
+
+    // Choose three random, unique shape options from the remaining shapes.
+    function chooseThreeOptions() {
+      if (remainingShapes.length <= 3) {
+         return remainingShapes.slice();
+      }
+      let indices = [];
+      let options = [];
+      while (indices.length < 3) {
+         let idx = Math.floor(Math.random() * remainingShapes.length);
+         if (!indices.includes(idx)) {
+            indices.push(idx);
+            options.push(remainingShapes[idx]);
+         }
+      }
+      return options;
+    }
+
+    // --- DRAG & DROP HANDLERS ---
+    let draggedShape = null;
+    let highlightCells = [];
+    function dragStart(ev, shapeIndex) {
+      draggedShape = currentShapes[shapeIndex];
+    }
+    function handleDragOver(ev, row, col) {
+      ev.preventDefault();
+      if (!draggedShape) return;
+      if (canPlaceShape(playerKnapsack.grid, draggedShape, row, col)) {
+         highlightCells = draggedShape.blocks.map(([dr, dc]) => [row + dr, col + dc]);
+      } else {
+         highlightCells = [];
+      }
+      renderPlayerGrid();
+    }
+    function clearHighlight(ev) {
+      ev.preventDefault();
+      highlightCells = [];
+      renderPlayerGrid();
+    }
+    function dropShape(ev, row, col) {
+      ev.preventDefault();
+      if (!draggedShape) return;
+      if (canPlaceShape(playerKnapsack.grid, draggedShape, row, col)) {
+         placeShape(playerKnapsack.grid, draggedShape, row, col);
+         playerKnapsack.totalValue += draggedShape.value;
+         playerKnapsack.items.push(draggedShape);
+         // Remove the placed shape from the remaining list.
+         let index = remainingShapes.indexOf(draggedShape);
+         if (index !== -1) {
+            remainingShapes.splice(index, 1);
+         }
+         draggedShape = null;
+         highlightCells = [];
+         renderPlayerGrid();
+         updateStatus();
+         setTimeout(nextRound, 300);
+      } else {
+         alert("Invalid placement. Please drop the shape in a valid position.");
+      }
+    }
+
+    // --- ROUND & LEVEL FLOW ---
+    // Proceed to the next round or end the level if no valid moves remain.
+    function nextRound() {
+      roundCount++;
+      if (remainingShapes.length === 0) {
+         endLevel();
+         return;
+      }
+      // If no remaining shape can be placed anywhere, end the level.
+      let validOption = remainingShapes.some(shape => hasValidPlacement(playerKnapsack.grid, shape));
+      if (!validOption) {
+         endLevel();
+         return;
+      }
+      currentShapes = chooseThreeOptions();
+      renderShapeOptions();
+      updateStatus();
+    }
+
+    // End the level and check if the player met the target.
+    function endLevel() {
+      if (playerKnapsack.totalValue >= targetValue) {
+         document.getElementById('gameMessage').innerHTML = "<h2>Level complete! You reached the target.</h2>";
+         if (currentLevelIndex < levels.length - 1) {
+            setTimeout(() => {
+               currentLevelIndex++;
+               initLevel();
+            }, 2000);
+         } else {
+            document.getElementById('gameMessage').innerHTML += "<h2>All levels complete!</h2>";
+         }
+      } else {
+         document.getElementById('gameMessage').innerHTML = "<h2>Level failed! You did not reach the target. Try again.</h2>";
+         setTimeout(initLevel, 2000);
+      }
+    }
+
+    // Initialize the current level.
+    function initLevel() {
+      let level = levels[currentLevelIndex];
+      gridSize = level.gridSize;
+      playerKnapsack = {
+         grid: createEmptyGrid(),
+         totalValue: 0,
+         items: []
+      };
+      // Pre-generate shapes for the level (ensuring total area ≤ grid cells).
+      levelShapes = generateLevelShapes(gridSize * gridSize);
+      totalLevelValue = levelShapes.reduce((sum, shape) => sum + shape.value, 0);
+      targetValue = level.targetPercentage * totalLevelValue;
+      remainingShapes = levelShapes.slice();
+      roundCount = 1;
+      currentShapes = chooseThreeOptions();
+      document.getElementById('gameMessage').innerHTML = "";
+      updateStatus();
+      renderPlayerGrid();
+      renderShapeOptions();
+    }
+
+    // Start the game (Level 1).
+    initLevel();
+  </script>
+</body>
+</html>
