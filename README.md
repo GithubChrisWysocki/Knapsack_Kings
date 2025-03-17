@@ -1,2 +1,2 @@
 Use with Firefox
-[GitHub Pages Deployment](https://github.com/GithubChrisWysocki/Knapsack_Kings/deployments/github-pages)
+[GitHub Pages Deployment](https://githubchriswysocki.github.io/Knapsack_Kings/)
