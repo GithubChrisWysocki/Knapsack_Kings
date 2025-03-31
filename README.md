@@ -1,4 +1,4 @@
-Here the link to the game:
+Here is the link to the game:
 [GitHub Pages Deployment](https://githubchriswysocki.github.io/Knapsack_Kings/)
 \
 
