@@ -645,11 +645,15 @@
     function handleDragLeave(ev, row, col) {
         ev.preventDefault();
         // Clear both types of highlights when leaving a cell
-        if (highlightCells.length > 0 || conflictCells.length > 0) { // Check both
+        // --- Temporarily disable highlight clearing here ---
+        /*
+        if (highlightCells.length > 0 || conflictCells.length > 0) {
             highlightCells = [];
-            conflictCells = []; // Clear conflicts too
+            conflictCells = [];
             renderPlayerGrid();
         }
+        */
+        // We will rely on dragover updating and dragend cleaning up.
     }
 
     function handleDrop(ev, row, col) {
