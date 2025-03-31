@@ -2,117 +2,376 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Knapsack Kings – Level Mode - Works with browser Firefox</title>
+  <title>Knapsack Kings – Level Mode</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    table { border-collapse: collapse; }
-    td {
-      width: 30px;
-      height: 30px;
-      border: 1px solid #000;
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 20px;
+      background-color: #f0f0f0; /* Lighter background */
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      align-items: center; /* Center content */
+    }
+
+    h1, h2 {
+      color: #2a75bb; /* A nice blue */
+      text-shadow: 1px 1px 1px #ccc;
+    }
+
+    #gameContainer { /* Wrap game elements for better layout control */
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px; /* Space between sections */
+        background-color: #fff;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    #status {
+      background-color: #e7f3fe;
+      padding: 10px 15px;
+      border-radius: 5px;
+      border: 1px solid #bde0fe;
+      min-width: 300px;
+      text-align: center;
+    }
+    #status p {
+        margin: 5px 0;
+    }
+
+    #playerGrid table {
+      border-collapse: collapse;
+      border: 2px solid #555; /* Thicker grid border */
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    }
+
+    #playerGrid td {
+      width: 35px; /* Slightly larger cells */
+      height: 35px;
+      border: 1px solid #ccc; /* Lighter cell borders */
       text-align: center;
       vertical-align: middle;
+      background-color: #e9e9e9; /* Default empty cell color */
+      transition: background-color 0.2s ease-in-out; /* Smooth transition! */
     }
-    .highlight {
-      background-color: yellow;
-    }
+
     .dropzone {
       cursor: pointer;
     }
-    .shapeOption {
-      display: inline-block;
-      margin: 10px;
-      border: 1px solid #000;
-      padding: 5px;
+
+    .highlight {
+      /* background-color: #ffec8b; /* OLD light yellow */
+      background-color: #80DEEA; /* NEW - A clear, bright Cyan */
+      /* box-shadow: inset 0 0 5px rgba(255, 215, 0, 0.7); /* OLD inner glow */
+      outline: 2px solid #007B8A; /* NEW - A darker cyan outline */
+      outline-offset: -2px; /* Pull outline inside the cell boundary */
+      /* Optional: Slightly reduce opacity if it feels *too* strong */
+      /* opacity: 0.9; */
     }
+    .conflict {
+      background-color: #ffcdd2; /* Light Pink/Red */
+      outline: 2px solid #d32f2f; /* Strong Red */
+      outline-offset: -2px;
+      cursor: not-allowed; /* Indicate invalid action */
+      /* Optional: Add a subtle pattern for more emphasis */
+      /* background-image: repeating-linear-gradient(
+          45deg,
+          transparent,
+          transparent 4px,
+          rgba(211, 47, 47, 0.3) 4px,
+          rgba(211, 47, 47, 0.3) 8px
+        ); */
+    }
+    /* Class added briefly when a shape is placed */
+    .placed-success {
+        animation: flashGreen 0.4s ease-out;
+    }
+
+    @keyframes flashGreen {
+        0% { transform: scale(1.05); box-shadow: inset 0 0 10px rgba(76, 175, 80, 0.8); }
+        100% { transform: scale(1); box-shadow: none; }
+    }
+
+
+    #shapeOptions {
+        display: flex; /* Use flexbox for layout */
+        gap: 15px; /* Space between options */
+        justify-content: center; /* Center the options */
+        flex-wrap: wrap; /* Allow wrapping if needed */
+        margin-top: 10px;
+    }
+
+    .shapeOption {
+      display: inline-block; /* Keep inline-block behavior within flex */
+      border: 2px solid #aaa;
+      padding: 8px;
+      background-color: #f8f8f8;
+      border-radius: 5px;
+      cursor: grab; /* Indicate draggable */
+      transition: transform 0.1s ease-out, box-shadow 0.1s ease-out; /* Hover effect */
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .shapeOption:hover {
+        transform: scale(1.05); /* Slightly enlarge on hover */
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+    .shapeOption:active {
+        cursor: grabbing; /* Indicate grabbing */
+        transform: scale(1.02);
+    }
+
+
     .shapeOption table {
       border-collapse: collapse;
+      margin-bottom: 5px; /* Space below shape preview */
     }
+
     .shapeOption td {
       width: 20px;
       height: 20px;
-      border: 1px solid #000;
+      border: 1px solid #ccc; /* Lighter border for shape preview */
+    }
+    .shapeOption p {
+        font-size: 0.9em;
+        text-align: center;
+        margin: 5px 0 0 0;
+        color: #555;
+    }
+
+    #gameMessage {
+        margin-top: 20px;
+        padding: 15px;
+        border-radius: 5px;
+        font-size: 1.2em;
+        font-weight: bold;
+        text-align: center;
+    }
+    #gameMessage h2 {
+        margin: 0;
+    }
+    .level-complete {
+        background-color: #d4edda; /* Greenish background */
+        color: #155724; /* Dark green text */
+        border: 1px solid #c3e6cb;
+    }
+    .level-failed {
+        background-color: #f8d7da; /* Reddish background */
+        color: #721c24; /* Dark red text */
+        border: 1px solid #f5c6cb;
+    }
+    /* ... (existing styles) ... */
+
+    /* Layout for app container */
+    #appContainer {
+        display: flex;
+        align-items: flex-start; /* Align tops */
+        gap: 30px; /* Space between selector and game */
+        width: 95%; /* Adjust as needed */
+        max-width: 1200px; /* Max width for large screens */
+        margin: 0 auto; /* Center the container */
+        flex-wrap: wrap; /* Allow wrapping on smaller screens */
+        justify-content: center;
+    }
+
+    /* Difficulty Selector Styling */
+    #difficultySelector {
+        background-color: #fff;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        text-align: center;
+        min-width: 200px; /* Ensure it has some width */
+        transition: opacity 0.5s ease-out, transform 0.5s ease-out; /* For hiding */
+    }
+    #difficultySelector h2 {
+        margin-top: 0;
+        color: #2a75bb;
+    }
+    .difficulty-btn {
+        display: block; /* Stack buttons vertically */
+        width: 100%;
+        padding: 12px 20px;
+        margin: 10px 0;
+        font-size: 1.1em;
+        font-weight: bold;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.2s ease, transform 0.1s ease;
+        color: #fff;
+        text-shadow: 1px 1px 1px rgba(0,0,0,0.2);
+    }
+    .difficulty-btn[data-difficulty="easy"] { background-color: #66bb6a; } /* Green */
+    .difficulty-btn[data-difficulty="medium"] { background-color: #ffa726; } /* Orange */
+    .difficulty-btn[data-difficulty="hard"] { background-color: #ef5350; } /* Red */
+
+    .difficulty-btn:hover {
+        opacity: 0.9;
+        transform: scale(1.02);
+    }
+    .difficulty-btn.selected { /* Style for the selected button */
+        outline: 3px solid #333;
+        box-shadow: inset 0 0 10px rgba(0,0,0,0.3);
+    }
+
+    #difficultyDescription p {
+        margin-top: 15px;
+        font-size: 0.9em;
+        color: #555;
+    }
+
+    /* Utility class to hide elements */
+    .hidden {
+        display: none !important; /* Initially hide game container */
+        /* Or use for smooth transition: */
+        /* opacity: 0;
+        transform: scale(0.95);
+        pointer-events: none; */
+    }
+
+    /* Game Container Styling (remove fixed position if any) */
+    #gameContainer {
+        /* Ensure it takes up appropriate space */
+        flex-grow: 1; /* Allow it to grow if needed */
+        /* Add transition if using opacity/transform for hiding */
+         transition: opacity 0.5s ease-in, transform 0.5s ease-in;
+         /* Remove initial hidden class styling if using JS to toggle display */
+    }
+
+     /* Responsive adjustments */
+    @media (max-width: 768px) {
+        #appContainer {
+            flex-direction: column; /* Stack vertically on small screens */
+            align-items: center;
+        }
+        #difficultySelector {
+            width: 80%; /* Take more width */
+            margin-bottom: 20px;
+        }
     }
   </style>
 </head>
 <body>
-  <h1>Knapsack Kings – Level Mode - Works with browser Firefox</h1>
-  <div id="status"></div>
-  <div>
-    <h2>Your Grid</h2>
-    <div id="playerGrid"></div>
-  </div>
-  <h2>Choose a Shape</h2>
-  <div id="shapeOptions"></div>
-  <div id="gameMessage"></div>
+  <h1>Knapsack Kings – Level Mode</h1>
+
+  <!-- Main container for layout -->
+  <div id="appContainer" style="display: flex; align-items: flex-start; gap: 30px; width: 100%; justify-content: center;">
+
+    <!-- Difficulty Selector (Initially Visible) -->
+    <div id="difficultySelector">
+        <h2>Choose Difficulty</h2>
+        <button class="difficulty-btn" data-difficulty="easy">Easy</button>
+        <button class="difficulty-btn" data-difficulty="medium">Medium</button>
+        <button class="difficulty-btn" data-difficulty="hard">Hard</button>
+        <div id="difficultyDescription">
+            <p>Select a difficulty to begin.</p>
+        </div>
+    </div>
+
+    <!-- Game Container (Initially Hidden) -->
+    <div id="gameContainer" class="hidden">
+        <div id="status"></div>
+        <div>
+            <h2>Your Grid</h2>
+            <div id="playerGrid"></div>
+        </div>
+        <h2>Choose a Shape</h2>
+        <div id="shapeOptions"></div>
+        <div id="gameMessage"></div>
+    </div>
+
+</div> <!-- End #appContainer -->
+
 
   <script>
-    // Level definitions:
-    // Level 1: 6x6 grid, target = 60% of total pre-generated shapes' value.
-    // Level 2: 7x7 grid, target = 70%.
+    // --- Game Configuration ---
+
+
+    // --- Game Configuration ---
     let currentLevelIndex = 0;
-    const levels = [
-      { gridSize: 6, targetPercentage: 0.6 },   // Level 1
-      { gridSize: 7, targetPercentage: 0.65 },  // Level 2
-      { gridSize: 8, targetPercentage: 0.7 },   // Level 3
-      { gridSize: 9, targetPercentage: 0.75 },  // Level 4
-      { gridSize: 10, targetPercentage: 0.78 }, // Level 5
-      { gridSize: 11, targetPercentage: 0.81 }, // Level 6
-      { gridSize: 12, targetPercentage: 0.84 }, // Level 7
-      { gridSize: 13, targetPercentage: 0.87 }, // Level 8
-      { gridSize: 14, targetPercentage: 0.9 },  // Level 9
-      { gridSize: 15, targetPercentage: 0.93 }  // Level 10
-    ];
-    let gridSize;            // current level grid size
-    let targetValue = 0;     // target score for the level
-    let totalLevelValue = 0; // sum of values of all shapes for the level
-    let levelShapes = [];    // list of all pre-generated shapes for the level
-    let remainingShapes = []; // shapes still available to place
-    let currentShapes = [];  // three shape options shown in the current round
-    let roundCount = 1;
-    
-    // Player's grid and score:
-    let playerKnapsack = {
-      grid: [],
-      totalValue: 0,
-      items: []
+    let selectedDifficulty = null; // To store 'easy', 'medium', or 'hard'
+
+    const difficultySettings = {
+        easy:   { a: 0.95, b: 0.75, targetMultiplier: 0.92 }, // Fewer shapes, lower target
+        medium: { a: 1.1,  b: 0.8,  targetMultiplier: 1.0  }, // Baseline
+        hard:   { a: 1.25, b: 0.85, targetMultiplier: 1.08 }  // More shapes, higher target
     };
 
-    // Expanded pool of shapes – standard tetrominoes with extra rotations/mirrors.
-    const shapesPool = [
-      { name: 'I', blocks: [[0,0], [0,1], [0,2], [0,3]] },
-      { name: 'I-rotated', blocks: [[0,0], [1,0], [2,0], [3,0]] },
-      { name: 'O', blocks: [[0,0], [0,1], [1,0], [1,1]] },
-      { name: 'T', blocks: [[0,0], [0,1], [0,2], [1,1]] },
-      { name: 'T-rotated', blocks: [[0,1], [1,0], [1,1], [2,1]] },
-      { name: 'L', blocks: [[0,0], [1,0], [2,0], [2,1]] },
-      { name: 'J', blocks: [[0,1], [1,1], [2,1], [2,0]] },
-      { name: 'S', blocks: [[0,1], [0,2], [1,0], [1,1]] },
-      { name: 'Z', blocks: [[0,0], [0,1], [1,1], [1,2]] }
+
+    // ... etc ...
+    const levels = [
+      { gridSize: 6, targetPercentage: 0.65 },   // Level 1
+      { gridSize: 7, targetPercentage: 0.68 },  // Level 2
+      { gridSize: 8, targetPercentage: 0.73 },   // Level 3
+      { gridSize: 9, targetPercentage: 0.78 },  // Level 4
+      { gridSize: 10, targetPercentage: 0.81 }, // Level 5
+      { gridSize: 11, targetPercentage: 0.84 }, // Level 6
+      { gridSize: 12, targetPercentage: 0.88 }, // Level 7
+      { gridSize: 13, targetPercentage: 0.9 }, // Level 8
+      { gridSize: 14, targetPercentage: 0.93 },  // Level 9
+      { gridSize: 15, targetPercentage: 0.97 }  // Level 10
     ];
 
-    // Utility: Map a shape's value (10-30) to a green shade.
-    // Lower values yield a very light green (90% lightness), higher values a dark green (30%).
+    // Shape Definitions (Tetrominoes + variations)
+    const shapesPool = [
+      { name: 'I', blocks: [[0,0], [0,1], [0,2], [0,3]] },
+      { name: 'I-Rotated', blocks: [[0,0], [1,0], [2,0], [3,0]] },
+      { name: 'O', blocks: [[0,0], [0,1], [1,0], [1,1]] },
+      { name: 'T', blocks: [[0,0], [0,1], [0,2], [1,1]] },
+      { name: 'T-Rotated', blocks: [[0,1], [1,0], [1,1], [2,1]] },
+      { name: 'T-UpsideDown', blocks: [[1,0], [1,1], [1,2], [0,1]] }, // Added more rotations
+      { name: 'T-Left', blocks: [[0,0], [1,0], [2,0], [1,1]] },       // Added more rotations
+      { name: 'L', blocks: [[0,0], [1,0], [2,0], [2,1]] },
+      { name: 'L-90', blocks: [[0,2], [1,0], [1,1], [1,2]] },        // Added more rotations
+      { name: 'L-180', blocks: [[0,0], [0,1], [1,1], [2,1]] },       // Added more rotations
+      { name: 'L-270', blocks: [[0,0], [0,1], [0,2], [1,0]] },       // Added more rotations
+      { name: 'J', blocks: [[0,1], [1,1], [2,1], [2,0]] },
+      { name: 'J-90', blocks: [[0,0], [1,0], [1,1], [1,2]] },        // Added more rotations
+      { name: 'J-180', blocks: [[0,0], [1,0], [2,0], [0,1]] },       // Added more rotations
+      { name: 'J-270', blocks: [[0,0], [0,1], [0,2], [1,2]] },       // Added more rotations
+      { name: 'S', blocks: [[0,1], [0,2], [1,0], [1,1]] },
+      { name: 'S-Rotated', blocks: [[0,0], [1,0], [1,1], [2,1]] },   // Added more rotations
+      { name: 'Z', blocks: [[0,0], [0,1], [1,1], [1,2]] },
+      { name: 'Z-Rotated', blocks: [[0,1], [1,0], [1,1], [2,0]] }    // Added more rotations
+    ];
+
+    // --- Game State Variables ---
+    let gridSize;
+    let targetValue = 0;
+    let totalLevelValue = 0;
+    let levelShapes = [];
+    let remainingShapes = [];
+    let currentShapes = [];
+    let roundCount = 1;
+    let playerKnapsack = { grid: [], totalValue: 0, items: [] };
+    let draggedShape = null;
+    let draggedShapeIndex = -1; // Keep track of which option was dragged
+    let highlightCells = []; // Array of [r, c] coordinates to highlight
+    let conflictCells = []; // Array of [r, c] coordinates causing conflict
+
+    
+    // --- Utility Functions ---
+
+    // Enhanced green color mapping: Brighter greens
     function valueToGreen(value) {
-      let normalized = (value - 10) / 20;
-      let lightness = 90 - normalized * 60;
-      return `hsl(120, 100%, ${lightness}%)`;
+      let normalized = (value - 10) / 20; // Normalize 10-30 to 0-1
+      let lightness = 75 - normalized * 35; // Range from 75% (light green) to 40% (darker green)
+      let saturation = 80 + normalized * 20; // Increase saturation for higher values
+      return `hsl(120, ${saturation}%, ${lightness}%)`;
     }
 
-    // Create an empty 2D grid (gridSize x gridSize) initialized to null.
     function createEmptyGrid() {
       let grid = [];
       for (let r = 0; r < gridSize; r++) {
-        let row = [];
-        for (let c = 0; c < gridSize; c++) {
-          row.push(null);
-        }
-        grid.push(row);
+        grid.push(Array(gridSize).fill(null)); // Simpler way to create row
       }
       return grid;
     }
 
-    // Fisher–Yates shuffle.
     function shuffle(array) {
       for (let i = array.length - 1; i > 0; i--) {
          let j = Math.floor(Math.random() * (i + 1));
@@ -120,62 +379,67 @@
       }
     }
 
-    // Generate a shape from a given template with a random value (10–30).
     function generateShapeFromTemplate(template) {
       return {
+        id: Math.random().toString(36).substring(2, 9), // Unique ID for better tracking
         name: template.name,
-        blocks: template.blocks.map(b => [b[0], b[1]]),
+        blocks: template.blocks.map(b => [...b]), // Deep copy blocks
         value: Math.floor(Math.random() * 21) + 10
       };
     }
 
-    // Generate level shapes: keep adding shapes while the sum of their cell counts is ≤ total grid cells.
-    function generateLevelShapes(totalCells) {
+    function generateLevelShapes(totalCells,a,b) {
       let shapesForLevel = [];
       let totalArea = 0;
-      while (true) {
+      let attempts = 0; // Prevent infinite loop if shapes are too large
+      while (attempts < 500) { // Limit attempts
         let template = shapesPool[Math.floor(Math.random() * shapesPool.length)];
         let candidate = generateShapeFromTemplate(template);
-        let candidateArea = candidate.blocks.length; // (tetrominoes usually cover 4 cells)
-        if (totalArea + candidateArea <= totalCells) {
+        let candidateArea = candidate.blocks.length;
+        if (totalArea + candidateArea <= totalCells * a) { // 1.1 Allow slight overfill potential for variety
           shapesForLevel.push(candidate);
           totalArea += candidateArea;
-        } else {
-          break;
+        } else if (shapesForLevel.length > 5) { // Need at least a few shapes
+            break; // Stop if we can't fit more
         }
+        attempts++;
+        if (totalArea >= totalCells * b) break; //0.8 Stop if reasonably full
       }
+      shuffle(shapesForLevel); // Shuffle the generated shapes
       return shapesForLevel;
     }
 
-    // Get the bounding box dimensions for a shape.
     function getShapeDimensions(shape) {
       let maxRow = 0, maxCol = 0;
       shape.blocks.forEach(([r, c]) => {
-         if (r > maxRow) maxRow = r;
-         if (c > maxCol) maxCol = c;
+         maxRow = Math.max(maxRow, r);
+         maxCol = Math.max(maxCol, c);
       });
       return { rows: maxRow + 1, cols: maxCol + 1 };
     }
 
-    // Check if a shape can be placed on a grid at (startRow, startCol).
     function canPlaceShape(grid, shape, startRow, startCol) {
-      for (let i = 0; i < shape.blocks.length; i++) {
-         let [dr, dc] = shape.blocks[i];
-         let r = startRow + dr, c = startCol + dc;
-         if (r < 0 || r >= gridSize || c < 0 || c >= gridSize) return false;
-         if (grid[r][c] !== null) return false;
+      for (const [dr, dc] of shape.blocks) {
+         const r = startRow + dr;
+         const c = startCol + dc;
+         if (r < 0 || r >= gridSize || c < 0 || c >= gridSize || grid[r][c] !== null) {
+             return false; // Out of bounds or cell occupied
+         }
       }
       return true;
     }
 
-    // Place a shape on the grid (assumes placement is valid) and store its value.
     function placeShape(grid, shape, startRow, startCol) {
+      const placedCoords = []; // Keep track of where it was placed
       shape.blocks.forEach(([dr, dc]) => {
-         grid[startRow + dr][startCol + dc] = shape.value;
+         const r = startRow + dr;
+         const c = startCol + dc;
+         grid[r][c] = shape.value;
+         placedCoords.push([r, c]);
       });
+      return placedCoords; // Return coordinates for animation
     }
 
-    // Check if there is any valid placement for a shape on the current grid.
     function hasValidPlacement(grid, shape) {
       for (let r = 0; r < gridSize; r++) {
          for (let c = 0; c < gridSize; c++) {
@@ -185,171 +449,375 @@
       return false;
     }
 
-    // Render the player's grid.
-    // If a cell is filled, its background is set using valueToGreen.
-    // Empty cells may be highlighted (yellow) if part of a valid drag–hover.
+    // --- Rendering Functions ---
+
     function renderPlayerGrid() {
       const container = document.getElementById('playerGrid');
-      let html = '<table>';
+      const table = container.querySelector('table') || document.createElement('table');
+      let tbodyHtml = '';
+
       for (let r = 0; r < gridSize; r++) {
-         html += '<tr>';
+         tbodyHtml += '<tr>';
          for (let c = 0; c < gridSize; c++) {
-            let cellValue = playerKnapsack.grid[r][c];
-            let styleAttr = '';
-            let classes = 'dropzone';
-            if (cellValue !== null) {
-               styleAttr = ` style="background-color: ${valueToGreen(cellValue)};"`;
-            } else {
-               for (let i = 0; i < highlightCells.length; i++) {
-                  if (highlightCells[i][0] === r && highlightCells[i][1] === c) {
-                     classes += ' highlight';
-                     break;
-                  }
-               }
+            const cellValue = playerKnapsack.grid[r][c];
+            let cellStyle = '';
+            let cellClasses = 'dropzone';
+            let isHighlighted = false;
+            let isConflict = false; // New flag
+
+            // --- Check for Conflict FIRST ---
+            for (const [cr, cc] of conflictCells) {
+                if (cr === r && cc === c) {
+                    isConflict = true;
+                    break;
+                }
             }
-            html += `<td class="${classes}"${styleAttr} ondragover="handleDragOver(event, ${r}, ${c})" ondragleave="clearHighlight(event)" ondrop="dropShape(event, ${r}, ${c})"></td>`;
+
+            // --- Check for Highlight SECOND (only if not conflict) ---
+            if (!isConflict) {
+                for (const [hr, hc] of highlightCells) {
+                    if (hr === r && hc === c) {
+                        isHighlighted = true;
+                        break;
+                    }
+                }
+            }
+
+            // --- Apply styles/classes ---
+            if (isConflict) {
+                cellClasses += ' conflict'; // Add conflict class
+            } else if (cellValue !== null) { // Existing placed shape
+               cellStyle = `background-color: ${valueToGreen(cellValue)};`;
+            } else if (isHighlighted) { // Valid placement highlight
+               cellClasses += ' highlight';
+            }
+            // Else: default empty cell style (handled by CSS)
+
+            tbodyHtml += `<td class="${cellClasses}" style="${cellStyle}"
+                            data-row="${r}" data-col="${c}"
+                            ondragover="handleDragOver(event, ${r}, ${c})"
+                            ondragleave="handleDragLeave(event, ${r}, ${c})"
+                            ondrop="handleDrop(event, ${r}, ${c})"></td>`;
          }
-         html += '</tr>';
+         tbodyHtml += '</tr>';
       }
-      html += '</table>';
-      container.innerHTML = html;
+
+      // Update only tbody content if table exists, otherwise create table
+      let tbody = table.querySelector('tbody');
+      if (!tbody) {
+          tbody = document.createElement('tbody');
+          table.appendChild(tbody);
+      }
+      tbody.innerHTML = tbodyHtml;
+
+      if (!container.contains(table)) {
+         container.innerHTML = ''; // Clear placeholder content
+         container.appendChild(table);
+      }
     }
 
-    // Render the three shape options as draggable elements.
     function renderShapeOptions() {
       const container = document.getElementById('shapeOptions');
-      let html = '';
+      container.innerHTML = ''; // Clear previous options
+
       currentShapes.forEach((shape, index) => {
+         if (!shape) return; // Skip if shape is somehow null
+
          const dims = getShapeDimensions(shape);
-         html += `<div class="shapeOption" draggable="true" ondragstart="dragStart(event, ${index})">`;
-         html += '<table>';
+         const optionDiv = document.createElement('div');
+         optionDiv.className = 'shapeOption';
+         optionDiv.draggable = true;
+         optionDiv.ondragstart = (event) => handleDragStart(event, index);
+         optionDiv.ondragend = handleDragEnd; // Add drag end handler
+
+         let tableHtml = '<table><tbody>'; // Use tbody for consistency
          for (let r = 0; r < dims.rows; r++) {
-            html += '<tr>';
+            tableHtml += '<tr>';
             for (let c = 0; c < dims.cols; c++) {
-               let isBlock = shape.blocks.some(([br, bc]) => br === r && bc === c);
+               const isBlock = shape.blocks.some(([br, bc]) => br === r && bc === c);
                if (isBlock) {
-                  html += `<td style="background-color: ${valueToGreen(shape.value)};"></td>`;
+                  tableHtml += `<td style="background-color: ${valueToGreen(shape.value)};"></td>`;
                } else {
-                  html += `<td></td>`;
+                  tableHtml += `<td style="background-color: transparent;"></td>`; // Empty cells transparent
                }
             }
-            html += '</tr>';
+            tableHtml += '</tr>';
          }
-         html += '</table>';
-         html += `<p>${shape.name} - Value: ${shape.value}</p>`;
-         html += `</div>`;
+         tableHtml += '</tbody></table>';
+         optionDiv.innerHTML = tableHtml + `<p>${shape.name} (Value: ${shape.value})</p>`;
+         container.appendChild(optionDiv);
       });
-      container.innerHTML = html;
     }
 
-    // Update the status display.
     function updateStatus() {
       const statusDiv = document.getElementById('status');
       statusDiv.innerHTML = `<p>Level ${currentLevelIndex + 1} (Grid: ${gridSize}×${gridSize})</p>
-                             <p>Target Score: ${Math.ceil(targetValue)} / Total Level Value: ${totalLevelValue}</p>
-                             <p>Current Score: ${playerKnapsack.totalValue}</p>
-                             <p>Remaining Shapes: ${remainingShapes.length}</p>`;
+                             <p>Target: ${Math.ceil(targetValue)} | Current: ${playerKnapsack.totalValue} | Max Possible: ${totalLevelValue}</p>
+                             <p>Shapes Left: ${remainingShapes.length}</p>`;
     }
 
-    // Choose three random, unique shape options from the remaining shapes.
+    // --- Game Logic ---
+
     function chooseThreeOptions() {
-      if (remainingShapes.length <= 3) {
-         return remainingShapes.slice();
-      }
-      let indices = [];
-      let options = [];
-      while (indices.length < 3) {
-         let idx = Math.floor(Math.random() * remainingShapes.length);
-         if (!indices.includes(idx)) {
-            indices.push(idx);
-            options.push(remainingShapes[idx]);
-         }
-      }
-      return options;
+        currentShapes = [];
+        const availableIndices = remainingShapes
+            .map((shape, index) => ({ shape, index })) // Keep track of original index
+            .filter(item => hasValidPlacement(playerKnapsack.grid, item.shape)); // Only pick shapes that *can* be placed
+
+        shuffle(availableIndices); // Shuffle the placeable shapes
+
+        for (let i = 0; i < 3 && i < availableIndices.length; i++) {
+            currentShapes.push(availableIndices[i].shape);
+        }
+
+        // If no shapes could be placed initially, the game should have ended,
+        // but as a fallback, if we somehow get here with no options, show some.
+        if (currentShapes.length === 0 && remainingShapes.length > 0) {
+             // Less ideal: pick up to 3 random ones even if they can't be placed yet
+             let tempOptions = remainingShapes.slice(0, 3);
+             currentShapes = tempOptions;
+        }
+
+        return currentShapes; // Return the chosen shapes
     }
+
 
     // --- DRAG & DROP HANDLERS ---
-    let draggedShape = null;
-    let highlightCells = [];
-    function dragStart(ev, shapeIndex) {
+
+    function handleDragStart(ev, shapeIndex) {
+      if (!currentShapes[shapeIndex]) return; // Safety check
       draggedShape = currentShapes[shapeIndex];
+      draggedShapeIndex = shapeIndex; // Store index of the dragged option
+      // Optional: Add a class to the body to indicate dragging is happening
+      document.body.classList.add('dragging');
+      // Use dataTransfer to potentially pass data (though we use global state here)
+      ev.dataTransfer.effectAllowed = 'move';
+      // Optional: Set a subtle drag image (though default often works fine)
+      // ev.dataTransfer.setData('text/plain', shapeIndex); // Example data
     }
+
     function handleDragOver(ev, row, col) {
-      ev.preventDefault();
+      ev.preventDefault(); // Necessary to allow dropping
       if (!draggedShape) return;
-      if (canPlaceShape(playerKnapsack.grid, draggedShape, row, col)) {
-         highlightCells = draggedShape.blocks.map(([dr, dc]) => [row + dr, col + dc]);
-      } else {
-         highlightCells = [];
+
+      ev.dataTransfer.dropEffect = 'move'; // Indicate placement is intended
+
+      let potentialHighlight = [];
+      let potentialConflict = [];
+      let needsRender = false;
+
+      // Calculate all cells the shape would occupy
+      const potentialOccupancyCells = draggedShape.blocks.map(([dr, dc]) => [row + dr, col + dc]);
+
+      // Check each potential cell
+      for (const [r, c] of potentialOccupancyCells) {
+         if (r < 0 || r >= gridSize || c < 0 || c >= gridSize) {
+             // Out of bounds - treat as conflict for visual feedback
+             potentialConflict.push([r, c]); // Mark the *intended* spot even if off-grid slightly visually
+         } else if (playerKnapsack.grid[r][c] !== null) {
+             // Occupied cell - definite conflict
+             potentialConflict.push([r, c]);
+         } else {
+             // Empty and within bounds - potential valid placement
+             potentialHighlight.push([r, c]);
+         }
       }
-      renderPlayerGrid();
+
+      // Determine if placement is actually possible (all cells must be valid)
+      const canPlace = potentialConflict.length === 0; // Only valid if NO conflicts
+
+      // Update highlights only if they change
+      // Compare arrays carefully (simple JSON stringify works for this structure)
+      if (JSON.stringify(highlightCells) !== JSON.stringify(canPlace ? potentialHighlight : [])) {
+          highlightCells = canPlace ? potentialHighlight : []; // Only show cyan highlight if placement is fully valid
+          needsRender = true;
+      }
+      if (JSON.stringify(conflictCells) !== JSON.stringify(potentialConflict)) {
+          conflictCells = potentialConflict;
+          needsRender = true;
+      }
+
+      if (needsRender) {
+         renderPlayerGrid(); // Re-render only if highlight/conflict state changed
+      }
     }
-    function clearHighlight(ev) {
-      ev.preventDefault();
-      highlightCells = [];
-      renderPlayerGrid();
+
+    function handleDragLeave(ev, row, col) {
+        ev.preventDefault();
+        // Clear both types of highlights when leaving a cell
+        if (highlightCells.length > 0 || conflictCells.length > 0) { // Check both
+            highlightCells = [];
+            conflictCells = []; // Clear conflicts too
+            renderPlayerGrid();
+        }
     }
-    function dropShape(ev, row, col) {
+
+    function handleDrop(ev, row, col) {
       ev.preventDefault();
       if (!draggedShape) return;
+
       if (canPlaceShape(playerKnapsack.grid, draggedShape, row, col)) {
-         placeShape(playerKnapsack.grid, draggedShape, row, col);
+         // --- Placement Success ---
+         const placedCoords = placeShape(playerKnapsack.grid, draggedShape, row, col);
          playerKnapsack.totalValue += draggedShape.value;
          playerKnapsack.items.push(draggedShape);
-         // Remove the placed shape from the remaining list.
-         let index = remainingShapes.indexOf(draggedShape);
-         if (index !== -1) {
-            remainingShapes.splice(index, 1);
+
+         // Remove the placed shape from remainingShapes using its unique ID or reference
+         const remainingIndex = remainingShapes.findIndex(s => s === draggedShape);
+         if (remainingIndex !== -1) {
+            remainingShapes.splice(remainingIndex, 1);
          }
+
+         // Also remove it from the current display options
+         //currentShapes[draggedShapeIndex] = null; // Mark as used
+
+         // --- State Reset & Update ---
          draggedShape = null;
-         highlightCells = [];
-         renderPlayerGrid();
+         //draggedShapeIndex = -1;
+         highlightCells = []; // **Crucial: Clear highlights**
+         conflictCells = [];  // Clear conflict highlights
+         renderPlayerGrid(); // Render grid *with* the new green shape
          updateStatus();
-         setTimeout(nextRound, 300);
+         renderShapeOptions(); // Re-render options to show one is gone
+
+         // --- Visual Feedback (Flash Effect) ---
+         const gridTable = document.getElementById('playerGrid').querySelector('table');
+         if (gridTable) {
+            placedCoords.forEach(([r, c]) => {
+                const cell = gridTable.rows[r]?.cells[c];
+                if (cell) {
+                    cell.classList.add('placed-success');
+                    // Remove class after animation completes
+                    setTimeout(() => {
+                        cell.classList.remove('placed-success');
+                    }, 400); // Match animation duration
+                }
+            });
+         }
+
+         // Check if game continues
+         setTimeout(nextRound, 50); // Check if more moves possible slightly after drop
+
       } else {
-         alert("Invalid placement. Please drop the shape in a valid position.");
+         // --- Placement Failed ---
+         // Provide feedback (optional, alert is disruptive)
+         // console.log("Cannot place shape here.");
+         // Reset highlight state visually
+         highlightCells = [];
+         conflictCells = []; // Clear conflicts on failed drop too
+         renderPlayerGrid(); // Re-render to remove highlight if drop failed
+         // No need to reset draggedShape here, it's reset in dragEnd
       }
     }
 
-    // --- ROUND & LEVEL FLOW ---
-    // Proceed to the next round or end the level if no valid moves remain.
+    function handleDragEnd(ev) {
+        // This is a crucial cleanup step!
+        // It runs regardless of whether the drop was successful or on a valid target.
+        document.body.classList.remove('dragging'); // Remove body class indicator
+        if (draggedShape) {
+            // If draggedShape is still set, it means drop didn't successfully complete
+            // or was cancelled (e.g., dropped outside window).
+            draggedShape = null;
+            draggedShapeIndex = -1;
+        }
+        // Always clear highlights and re-render grid to remove any lingering yellow
+        if (highlightCells.length > 0) {
+            highlightCells = [];
+            conflictCells = []; // Clear conflicts too
+            renderPlayerGrid();
+        }
+    }
+
+    // --- Round & Level Flow ---
+
+
+
     function nextRound() {
-      roundCount++;
+      // roundCount++; // Incrementing round might still make sense per placement
+
+      // --- Check Primary Game End Conditions ---
       if (remainingShapes.length === 0) {
-         endLevel();
+         console.log("No shapes remaining.");
+         endLevel(true); // Reached end with no shapes left, check score
          return;
       }
-      // If no remaining shape can be placed anywhere, end the level.
-      let validOption = remainingShapes.some(shape => hasValidPlacement(playerKnapsack.grid, shape));
-      if (!validOption) {
-         endLevel();
+
+      // Check if *any* shape in the entire remaining list can be placed
+      let canPlaceAnyShape = remainingShapes.some(shape => hasValidPlacement(playerKnapsack.grid, shape));
+      if (!canPlaceAnyShape) {
+         console.log("No valid placements possible for any remaining shape.");
+         endLevel(false); // No possible moves left anywhere on the board
          return;
       }
-      currentShapes = chooseThreeOptions();
-      renderShapeOptions();
-      updateStatus();
+
+      // --- Choose and Display New Options ---
+      currentShapes = chooseThreeOptions(); // Gets up to 3 placeable shapes
+
+      // If chooseThreeOptions couldn't find any placeable shapes (even though we know *some* exist),
+      // it implies a very rare edge case or potential issue in hasValidPlacement/chooseThreeOptions.
+      // Ending the level might be the safest fallback.
+      if (currentShapes.length === 0 && remainingShapes.length > 0) {
+           console.warn("Could not find 3 placeable shapes to offer (edge case?), ending level.");
+           endLevel(false); // Cannot offer valid moves
+           return;
+      }
+
+      renderShapeOptions(); // Display the newly chosen shapes
+      updateStatus(); // Update status (e.g., remaining count)
     }
 
-    // End the level and check if the player met the target.
-    function endLevel() {
+    function endLevel(ranOutOfShapes) {
+      const gameMessageDiv = document.getElementById('gameMessage');
+      let message = '';
+      let success = false;
+
       if (playerKnapsack.totalValue >= targetValue) {
-         document.getElementById('gameMessage').innerHTML = "<h2>Level complete! You reached the target.</h2>";
-         if (currentLevelIndex < levels.length - 1) {
+         message = `<h2>Level ${currentLevelIndex + 1} Complete!</h2><p>Score: ${playerKnapsack.totalValue} (Target: ${Math.ceil(targetValue)})</p>`;
+         gameMessageDiv.className = 'level-complete'; // Add success class
+         success = true;
+      } else {
+         message = `<h2>Level ${currentLevelIndex + 1} Failed!</h2><p>Score: ${playerKnapsack.totalValue} (Target: ${Math.ceil(targetValue)})</p>`;
+         if (!ranOutOfShapes) {
+            message += "<p>(No more valid moves)</p>";
+         }
+         gameMessageDiv.className = 'level-failed'; // Add failure class
+         success = false;
+      }
+      gameMessageDiv.innerHTML = message;
+
+      // Disable further interaction
+      document.getElementById('shapeOptions').innerHTML = ''; // Clear shape options
+
+      if (success && currentLevelIndex < levels.length - 1) {
+            // Proceed to next level after a delay
             setTimeout(() => {
                currentLevelIndex++;
                initLevel();
-            }, 2000);
-         } else {
-            document.getElementById('gameMessage').innerHTML += "<h2>All levels complete!</h2>";
-         }
-      } else {
-         document.getElementById('gameMessage').innerHTML = "<h2>Level failed! You did not reach the target. Try again.</h2>";
-         setTimeout(initLevel, 2000);
+            }, 3000); // Increased delay to read message
+      } else if (success && currentLevelIndex === levels.length - 1) {
+            // All levels complete
+            gameMessageDiv.innerHTML += "<h2>Congratulations! You beat all levels!</h2>";
+      } else if (!success) {
+            // Failed level, offer retry after delay
+            setTimeout(() => {
+                 initLevel(); // Restart the *same* level
+            }, 3500); // Increased delay
       }
     }
 
-    // Initialize the current level.
     function initLevel() {
+      if (!selectedDifficulty) {
+          console.error("Difficulty not selected!");
+          // Optional: Show selector again or display an error
+          document.getElementById('difficultySelector').classList.remove('hidden');
+          document.getElementById('gameContainer').classList.add('hidden');
+          return;
+      }
+
+      // Get settings for the current difficulty
+      const diffConfig = difficultySettings[selectedDifficulty];
+
+      // Reset state for the new level
       let level = levels[currentLevelIndex];
       gridSize = level.gridSize;
       playerKnapsack = {
@@ -357,21 +825,100 @@
          totalValue: 0,
          items: []
       };
-      // Pre-generate shapes for the level (ensuring total area ≤ grid cells).
-      levelShapes = generateLevelShapes(gridSize * gridSize);
+
+      // Generate shapes using difficulty parameters a and b
+      levelShapes = generateLevelShapes(gridSize * gridSize, diffConfig.a, diffConfig.b);
+
+      // Ensure shapes were generated
+      if (levelShapes.length === 0) {
+        console.error("Failed to generate any shapes for the level. Retrying generation.");
+        levelShapes = generateLevelShapes(gridSize * gridSize, diffConfig.a, diffConfig.b);
+        if (levelShapes.length === 0) {
+           alert("Error: Could not generate shapes. Please refresh.");
+           return;
+        }
+      }
+
       totalLevelValue = levelShapes.reduce((sum, shape) => sum + shape.value, 0);
-      targetValue = level.targetPercentage * totalLevelValue;
-      remainingShapes = levelShapes.slice();
+      // Calculate target using base percentage AND difficulty multiplier
+      targetValue = (level.targetPercentage * diffConfig.targetMultiplier) * totalLevelValue;
+      // Ensure target doesn't exceed max possible value (can happen with high multipliers)
+      targetValue = Math.min(targetValue, totalLevelValue);
+
+      remainingShapes = [...levelShapes];
       roundCount = 1;
-      currentShapes = chooseThreeOptions();
-      document.getElementById('gameMessage').innerHTML = "";
-      updateStatus();
+      draggedShape = null;
+      highlightCells = [];
+      conflictCells = []; // Make sure this is reset too
+      currentShapes = [];
+
+      // Clear messages and prepare UI
+      const gameMessageDiv = document.getElementById('gameMessage');
+      gameMessageDiv.innerHTML = "";
+      gameMessageDiv.className = '';
+
+      // Initial rendering and start the first round
+      updateStatus(); // Update status uses currentShapes, call after nextRound? Or update it here partially? Let's call it in nextRound.
       renderPlayerGrid();
-      renderShapeOptions();
+      nextRound(); // Start by choosing the first set of options
+      updateStatus(); // Call updateStatus AFTER nextRound sets currentShapes
+    }
+    // --- Initial Setup ---
+
+    const difficultyButtons = document.querySelectorAll('.difficulty-btn');
+    const difficultySelectorDiv = document.getElementById('difficultySelector');
+    const gameContainerDiv = document.getElementById('gameContainer');
+    const difficultyDescription = document.getElementById('difficultyDescription');
+
+    // Descriptions for difficulties (optional)
+    const descriptions = {
+        easy: "Easier targets and fewer pieces generated.",
+        medium: "The standard Knapsack Kings challenge.",
+        hard: "Tougher targets and more pieces crammed into the level."
+    };
+
+    difficultyButtons.forEach(button => {
+        // Show description on hover (optional)
+        button.addEventListener('mouseenter', () => {
+            const difficulty = button.getAttribute('data-difficulty');
+            difficultyDescription.innerHTML = `<p>${descriptions[difficulty] || ''}</p>`;
+        });
+        button.addEventListener('mouseleave', () => {
+            // Optionally clear description or revert to default if needed
+            // difficultyDescription.innerHTML = `<p>Select a difficulty to begin.</p>`;
+        });
+
+        // Handle difficulty selection click
+        button.addEventListener('click', () => {
+            selectedDifficulty = button.getAttribute('data-difficulty');
+            console.log(`Difficulty selected: ${selectedDifficulty}`);
+
+            // Visually mark selected button (optional)
+            difficultyButtons.forEach(btn => btn.classList.remove('selected'));
+            button.classList.add('selected');
+
+            // Hide selector, show game
+            difficultySelectorDiv.classList.add('hidden'); // Or use smooth transition styles
+            gameContainerDiv.classList.remove('hidden');   // Or use smooth transition styles
+
+            // Start the actual game
+            startGame();
+        });
+    });
+
+    function startGame() {
+        // Reset level index for a truly new game start
+        currentLevelIndex = 0;
+        initLevel(); // Initialize Level 1 with selected difficulty
     }
 
-    // Start the game (Level 1).
-    initLevel();
+    // // Remove the old direct call to initLevel();
+    // // initLevel();
+
+    // Game starts when a difficulty button is clicked.
+    // --- Start Game ---
+   // initLevel(); // Initialize Level 1 when script loads
+
   </script>
 </body>
 </html>
